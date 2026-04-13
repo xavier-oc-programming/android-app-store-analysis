@@ -45,22 +45,34 @@ data/apps.csv
     ▼
 pd.read_csv('../data/apps.csv')  →  df_apps  (10,841 × 12)
     │
-    ├── .drop(['Last_Updated', 'Android_Ver'])     →  10 columns remain
-    ├── .dropna()                                  →  9,367 rows
+    │  ── Cleaning ───────────────────────────────────────────────
+    ├── .drop(['Last_Updated', 'Android_Ver'])          →  10 columns remain
+    ├── .dropna()                                       →  9,367 rows
     ├── .drop_duplicates(subset=['App','Type','Price'])  →  8,199 rows  →  df_apps_clean
     │
-    ├── str.replace(',','') + pd.to_numeric()      →  Installs as int
-    ├── str.replace('$','') + pd.to_numeric()      →  Price as float
+    │  ── Type Conversion ────────────────────────────────────────
+    ├── str.replace(',','') + pd.to_numeric()           →  Installs as int
+    ├── str.replace('$','') + pd.to_numeric()           →  Price as float
     │
-    ├── .sort_values('Rating')                     →  highest-rated apps
-    ├── .sort_values('Reviews')                    →  most-reviewed apps
-    ├── .value_counts() on Content_Rating          →  pie chart
-    ├── .groupby('Category').agg(count, sum)
-    │       + pd.merge()                           →  scatter: category concentration
-    ├── .str.split(';').stack().value_counts()     →  bar: top genres
-    ├── .groupby(['Category','Type']).agg(count)   →  grouped bar: free vs paid
-    ├── filter Type=='Paid' → Revenue Estimate     →  box: revenue by category
-    └── box plots on Installs, Price               →  pricing strategy insight
+    │  ── Ranking ────────────────────────────────────────────────
+    ├── .sort_values('Rating')                          →  highest-rated apps
+    ├── .sort_values('Reviews')                         →  most-reviewed apps
+    │
+    │  ── Aggregation ────────────────────────────────────────────
+    ├── .value_counts() on Content_Rating               →  content rating counts
+    ├── .groupby('Category').agg(count, sum) + merge()  →  apps vs installs per category
+    ├── .str.split(';').stack().value_counts()           →  genre frequency counts
+    ├── .groupby(['Category','Type']).agg(count)        →  free vs paid app counts
+    ├── filter Type=='Paid', Price × Installs           →  revenue estimates
+    │
+    │  ── Visualisation ──────────────────────────────────────────
+    ├── px.pie()                                        →  content rating distribution
+    ├── px.scatter()                                    →  category concentration
+    ├── px.bar(color_continuous_scale='Agsunset')       →  top 15 genres
+    ├── px.bar(barmode='group')                         →  free vs paid per category
+    ├── px.box(y='Installs', x='Type')                  →  download loss for paid apps
+    ├── px.box(x='Category', y='Revenue Estimate')      →  revenue by category
+    └── px.box(x='Category', y='Price')                 →  pricing strategy by category
 ```
 
 ---
