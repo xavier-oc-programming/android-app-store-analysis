@@ -1,30 +1,28 @@
 # Android App Store Analysis
 
-Analysis of Google Play Store app data to uncover category competition, pricing strategies, and install patterns using Plotly visualisations.
+If you were launching an app today, where would you put it? This analysis of 8,199 Google Play Store apps maps category-level competition, install opportunity, and revenue potential to identify where the market is undersupplied — and where it is saturated.
 
-This project performs a comprehensive analysis of the Android app market by comparing thousands of apps across the Google Play Store. It answers concrete business questions: which categories are most competitive, which offer the strongest download opportunities, how much revenue a paid app can realistically expect, and how many installations a developer gives up by choosing to charge for their app. The analysis mirrors the kind of market intelligence produced by firms such as App Annie and Sensor Tower.
+The analytical approach runs in three parts: an Opportunity Score that measures demand relative to supply per category, a paid viability analysis that isolates categories where charging for an app actually produces meaningful revenue, and a K-Means segmentation that clusters all 8,199 individual apps into four distinct market positions using normalised features across installs, ratings, reviews, price, and app size. PCA reduces the five-dimensional feature space to two interpretable components for visualisation.
 
-The dataset was scraped from the Google Play Store by Lavanya Gupta in 2018 and contains 10,841 rows and 12 columns covering app name, category, rating, review count, size, install count, type (free/paid), price, content rating, and genres. The raw data is cleaned by removing NaN rows and duplicate entries, and several columns require type conversion (commas stripped from Installs, dollar signs stripped from Price) before analysis can proceed.
-
-No external APIs or credentials are required. All data is bundled as a local CSV file.
+The most striking result from the segmentation is that Mass Market Free dominates the Play Store by volume — most apps compete in a high-install, zero-price environment where organic discovery drives growth. Premium Paid apps exist in a structurally separate cluster: low install count, high price, high rating. A new developer choosing between these two positions is making a fundamentally different bet on audience acquisition versus willingness to pay.
 
 ---
 
 ## Table of Contents
 
-1. [Quick start](#1-quick-start)
-2. [Analysis flow](#2-analysis-flow)
-3. [Features](#3-features)
-4. [Dataset schema](#4-dataset-schema)
+1. [Quick Start](#1-quick-start)
+2. [Analysis Flow](#2-analysis-flow)
+3. [Key Findings](#3-key-findings)
+4. [Dataset Schema](#4-dataset-schema)
 5. [Architecture](#5-architecture)
-6. [Notebook reference](#6-notebook-reference)
-7. [Configuration reference](#7-configuration-reference)
-8. [Course context](#8-course-context)
+6. [Visualisations](#6-visualisations)
+7. [Operations Reference](#7-operations-reference)
+8. [Background](#8-background)
 9. [Dependencies](#9-dependencies)
 
 ---
 
-## 1. Quick start
+## 1. Quick Start
 
 ```bash
 git clone https://github.com/xavier-oc-programming/android-app-store-analysis.git
@@ -33,63 +31,86 @@ pip install -r requirements.txt
 jupyter notebook
 ```
 
-Open `practice/A_Main_Analysis.ipynb` to run the full analysis end-to-end.
+Open `notebooks/analysis/android_analysis.ipynb` to run the full analysis end-to-end.
+
+The rendered notebook (no code, outputs only) is available at:
+https://xavier-oc-programming.github.io/android-app-store-analysis/notebook_web_render/
 
 ---
 
-## 2. Analysis flow
+## 2. Analysis Flow
 
 ```
 data/apps.csv
     │
     ▼
-pd.read_csv('../data/apps.csv')  →  df_apps  (10,841 × 12)
+pd.read_csv('../../data/apps.csv')  →  df_apps  (10,841 × 12)
     │
     │  ── Cleaning ───────────────────────────────────────────────
-    ├── .drop(['Last_Updated', 'Android_Ver'])          →  10 columns remain
-    ├── .dropna()                                       →  9,367 rows
-    ├── .drop_duplicates(subset=['App','Type','Price'])  →  8,199 rows  →  df_apps_clean
+    ├── .drop(['Last_Updated', 'Android_Ver'])           →  10 columns remain
+    ├── .dropna()                                        →  9,367 rows
+    ├── .drop_duplicates(subset=['App','Type','Price'])   →  8,199 rows  →  df_apps_clean
     │
     │  ── Type Conversion ────────────────────────────────────────
-    ├── str.replace(',','') + pd.to_numeric()           →  Installs as int
-    ├── str.replace('$','') + pd.to_numeric()           →  Price as float
+    ├── str.replace(',','') + pd.to_numeric()            →  Installs as int
+    ├── str.replace('$','') + pd.to_numeric()            →  Price as float
     │
     │  ── Ranking ────────────────────────────────────────────────
-    ├── .sort_values('Rating')                          →  highest-rated apps
-    ├── .sort_values('Reviews')                         →  most-reviewed apps
+    ├── .sort_values('Rating')                           →  highest-rated apps
+    ├── .sort_values('Reviews')                          →  most-reviewed apps
     │
-    │  ── Aggregation ────────────────────────────────────────────
-    ├── .value_counts() on Content_Rating               →  content rating counts
-    ├── .groupby('Category').agg(count, sum) + merge()  →  apps vs installs per category
-    ├── .str.split(';').stack().value_counts()           →  genre frequency counts
-    ├── .groupby(['Category','Type']).agg(count)        →  free vs paid app counts
-    ├── filter Type=='Paid', Price × Installs           →  revenue estimates
+    │  ── Core Aggregation ───────────────────────────────────────
+    ├── .value_counts() on Content_Rating                →  content rating counts
+    ├── .groupby('Category').agg(count, sum) + merge()   →  apps vs installs per category
+    ├── .str.split(';').stack().value_counts()            →  genre frequency counts
+    ├── .groupby(['Category','Type']).agg(count)         →  free vs paid app counts
+    ├── filter Type=='Paid', Price × Installs            →  revenue estimates
+    │
+    │  ── Improvement 1: Opportunity Score ──────────────────────
+    ├── total_installs / num_apps per category           →  opportunity_score
+    ├── percentile thresholds (p25, p75)                 →  market_status labels
+    │
+    │  ── Improvement 2: Paid Viability ─────────────────────────
+    ├── filter Price ≤ $29.99, Type=='Paid'              →  df_paid_viable
+    ├── .groupby('Category').agg(median_revenue,         →  paid_cat summary
+    │         median_price, paid_app_count)
+    ├── filter paid_app_count ≥ 10                       →  credible categories only
+    │
+    │  ── Improvement 3: K-Means + PCA ──────────────────────────
+    ├── log1p(Installs), log1p(Reviews) transforms       →  reduce skew
+    ├── StandardScaler on 5 features                     →  X_scaled
+    ├── KMeans(n_clusters=4, random_state=42)            →  Segment labels
+    ├── PCA(n_components=2)                              →  X_pca for visualisation
     │
     │  ── Visualisation ──────────────────────────────────────────
-    ├── px.pie()                                        →  content rating distribution
-    ├── px.scatter()                                    →  category concentration
-    ├── px.bar(color_continuous_scale='Agsunset')       →  top 15 genres
-    ├── px.bar(barmode='group')                         →  free vs paid per category
-    ├── px.box(y='Installs', x='Type')                  →  download loss for paid apps
-    ├── px.box(x='Category', y='Revenue Estimate')      →  revenue by category
-    └── px.box(x='Category', y='Price')                 →  pricing strategy by category
+    ├── px.pie()                                         →  content rating distribution
+    ├── px.bar(orientation='h')                          →  category installs
+    ├── px.scatter()                                     →  category concentration
+    ├── px.bar(color_continuous_scale='Agsunset')        →  top 15 genres
+    ├── px.bar(barmode='group')                          →  free vs paid per category
+    ├── px.box(y='Installs', x='Type')                   →  download loss for paid apps
+    ├── px.box(x='Category', y='Revenue Estimate')       →  revenue by category
+    ├── px.box(x='Category', y='Price')                  →  pricing by category
+    ├── px.bar(x='opportunity_score', color=score)       →  opportunity score ranking
+    ├── px.scatter(x=median_price, y=median_revenue)     →  paid viability scatter
+    └── px.scatter(PC1, PC2, color=Segment_Label)        →  K-Means PCA projection
 ```
 
----
-
-## 3. Features
-
-- **Category competition** — scatter plot of number of apps vs total installs per category reveals crowded vs opportunity-rich segments
-- **Content rating breakdown** — pie / donut chart of audience age distribution across all apps
-- **Genre popularity** — horizontal bar chart of the top 15 genres with colour scale
-- **Free vs paid split** — grouped bar chart showing free and paid app counts per category
-- **Download loss for paid apps** — box plot comparing installs distribution for free vs paid apps
-- **Revenue estimates by category** — box plot of `Price × Installs` per category for paid apps
-- **Pricing strategy** — box plot of paid app prices by category, ordered by maximum price
+All charts are saved to `plots/` at 150 dpi (scale=2 via kaleido).
 
 ---
 
-## 4. Dataset schema
+## 3. Key Findings
+
+**Opportunity Score:** Categories are ranked by total installs divided by number of competing apps. The highest-scoring categories combine large aggregate download volumes with a relatively small number of entrants — they represent undersupplied demand. The lowest-scoring categories have the inverse profile: many apps competing for proportionally modest install volume. The `market_status` column in the summary DataFrame classifies each category as Opportunity (top quartile), Saturated (bottom quartile), or Competitive.
+
+**Paid App Viability:** After filtering to apps priced at $29.99 or below (removes data-entry junk with no installs) and requiring at least 10 paid apps per category, only a subset of categories produce meaningful median revenue estimates. Professional tools and niche productivity categories outperform casual and entertainment categories by a wide margin. Most categories show near-zero median revenue for paid apps, confirming that free-with-ads is the commercially rational default for the majority of the market.
+
+**K-Means App Segmentation:** Four clusters emerge from the normalised feature space. Mass Market Free captures the highest install volume and dominates by app count. Premium Paid is a structurally isolated cluster: low installs, above-average prices, high ratings — typically a niche professional or enthusiast audience. Hidden Gems sits at moderate installs with above-average ratings and low review counts, suggesting under-discovered apps with strong product quality. Struggling is characterised by low installs and below-average ratings. Free versus paid does not map cleanly onto segment boundaries — Hidden Gems contains predominantly free apps, which means product quality and niche focus drive segment membership more than pricing model alone.
+
+---
+
+## 4. Dataset Schema
 
 ### `data/apps.csv`
 
@@ -114,6 +135,10 @@ pd.read_csv('../data/apps.csv')  →  df_apps  (10,841 × 12)
 |---|---|
 | Revenue Estimate | `Price × Installs` — ballpark gross revenue for paid apps |
 | Genre_1 / Genre_2 | Primary and secondary genre split from the Genres column |
+| opportunity_score | `total_installs / num_apps` per category |
+| market_status | `Opportunity` / `Competitive` / `Saturated` based on percentile thresholds |
+| Segment | Integer cluster label (0–3) from KMeans |
+| Segment_Label | Business label assigned from centroid inspection |
 
 ---
 
@@ -122,84 +147,99 @@ pd.read_csv('../data/apps.csv')  →  df_apps  (10,841 × 12)
 ```
 android-app-store-analysis/
 │
-├── theory/                         # Lesson notes — concepts and annotated methods
-│   ├── 00__Overview.ipynb          # Day 76 goals and project outline
-│   ├── 01__Data_Cleaning.ipynb     # dropna, drop_duplicates
-│   ├── 02__Preliminary_Exploration.ipynb  # sort_values for rating, size, reviews
-│   ├── 03__Pie_and_Donut_Charts.ipynb     # px.pie(), content rating distribution
-│   ├── 04__Numeric_Type_Conversions.ipynb # str.replace + pd.to_numeric
-│   ├── 05__Bar_Charts_and_Scatter_Plots.ipynb  # px.bar, px.scatter, category analysis
-│   ├── 06__Extracting_Nested_Data.ipynb   # str.split + stack vs explode
-│   ├── 07__Grouped_Bar_Charts_and_Box_Plots.ipynb  # px.box, grouped bar, revenue
-│   ├── 08__Summary.ipynb           # Learning points recap
-│   └── ZZ__Agg_Tutorial.ipynb      # Deep dive into .agg() patterns
+├── notebooks/
+│   ├── analysis/
+│   │   └── android_analysis.ipynb     # Full end-to-end analysis
+│   └── concepts/                      # Concept notebooks: methods and annotated examples
+│       ├── 00__Overview.ipynb
+│       ├── 01__Data_Cleaning.ipynb
+│       ├── 02__Preliminary_Exploration.ipynb
+│       ├── 03__Pie_and_Donut_Charts.ipynb
+│       ├── 04__Numeric_Type_Conversions.ipynb
+│       ├── 05__Bar_Charts_and_Scatter_Plots.ipynb
+│       ├── 06__Extracting_Nested_Data.ipynb
+│       ├── 07__Grouped_Bar_Charts_and_Box_Plots.ipynb
+│       ├── 08__Summary.ipynb
+│       └── ZZ__Agg_Tutorial.ipynb
 │
-├── practice/                       # Student work — exercises and full analysis
-│   └── A_Main_Analysis.ipynb       # Complete end-to-end Google Play Store analysis
+├── data/
+│   └── apps.csv                       # Google Play Store dataset (10,841 rows raw)
 │
-├── data/                           # Seed dataset
-│   └── apps.csv                    # Google Play Store data (8,199 rows after cleaning)
+├── plots/                             # All charts — saved at 150 dpi on notebook run
+│
+├── notebook_web_render/
+│   └── index.html                     # Rendered notebook (no code) for GitHub Pages
 │
 ├── docs/
-│   └── COURSE_NOTES.md             # Original exercise brief and key concept notes
+│   └── COURSE_NOTES.md               # Concept notes (untouched)
 │
-├── requirements.txt                # Python dependencies with minimum versions
+├── .github/workflows/
+│   └── publish_notebook.yml           # CI: auto-renders notebook to HTML on push
+│
+├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 6. Notebook reference
+## 6. Visualisations
 
-### theory/
+All charts are saved to `plots/` at 150 dpi when the notebook runs.
 
-| Notebook | Key methods covered | Question answered |
-|---|---|---|
-| 00__Overview.ipynb | — | What will be built by end of day? |
-| 01__Data_Cleaning.ipynb | `.drop()`, `.dropna()`, `.duplicated()`, `.drop_duplicates(subset=[...])` | How to clean 10k rows down to 8k usable entries |
-| 02__Preliminary_Exploration.ipynb | `.sort_values()`, `.shape`, `.sample()` | Which apps have the highest ratings, most reviews, largest size? |
-| 03__Pie_and_Donut_Charts.ipynb | `px.pie()`, `.value_counts()`, `update_traces()` | How are apps distributed by content rating? |
-| 04__Numeric_Type_Conversions.ipynb | `str.replace()`, `pd.to_numeric()`, `.groupby().count()` | How many apps exceed 1B installs? What do apps cost? |
-| 05__Bar_Charts_and_Scatter_Plots.ipynb | `px.bar()`, `px.scatter()`, `pd.merge()`, `.groupby().agg()` | Which categories are most competitive vs most popular? |
-| 06__Extracting_Nested_Data.ipynb | `.str.split().stack()`, `.explode()`, `.value_counts()` | How many unique genres exist? What are the top 15? |
-| 07__Grouped_Bar_Charts_and_Box_Plots.ipynb | `px.box()`, `px.bar(barmode='group')`, `.groupby(['Cat','Type'])` | Free vs paid split; revenue estimates; pricing by category |
-| 08__Summary.ipynb | — | What were the key learning points from Day 76? |
-| ZZ__Agg_Tutorial.ipynb | `.agg()` with dict, list, named aggregations | How does `.agg()` work across different use cases? |
-
-### practice/
-
-| Notebook | Key methods covered | Question answered |
-|---|---|---|
-| A_Main_Analysis.ipynb | Full pipeline from raw CSV to Plotly charts | All six business questions end-to-end |
+| File | Description |
+|---|---|
+| `content_rating_donut.png` | Donut chart of content rating distribution |
+| `top_10_categories_bar.png` | Top 10 categories by number of apps |
+| `category_installs_bar.png` | All categories ranked by total installs (horizontal) |
+| `category_concentration_scatter.png` | Apps vs installs per category — scatter with size |
+| `top_genres_bar.png` | Top 15 genres by frequency, coloured by count |
+| `free_vs_paid_bar.png` | Free vs paid app count per category (grouped bar) |
+| `installs_free_vs_paid_box.png` | Install distribution: free vs paid (log scale box) |
+| `revenue_by_category_box.png` | Revenue estimate distribution by category (paid apps) |
+| `price_by_category_box.png` | Price distribution by category (paid apps) |
+| `opportunity_score_by_category.png` | All categories ranked by Opportunity Score |
+| `paid_app_viability_scatter.png` | Median price vs median revenue, sized by paid app count |
+| `app_segments_pca.png` | PCA projection of K-Means segments with centroid markers |
 
 ---
 
-## 7. Configuration reference
+## 7. Operations Reference
 
 | Value | Location | Description |
 |---|---|---|
-| `'../data/apps.csv'` | `practice/A_Main_Analysis.ipynb` | Relative path from practice/ to the dataset |
-| `pd.options.display.float_format = '{:,.2f}'.format` | `practice/A_Main_Analysis.ipynb` | Display floats with 2 decimal places and comma separators |
-| `df_apps_clean = df_apps_clean[df_apps_clean["Price"] < 250]` | `practice/A_Main_Analysis.ipynb` | Filters out junk high-price apps above $250 |
-| `color_continuous_scale='Agsunset'` | `practice/A_Main_Analysis.ipynb` | Colour scale used in the genre bar chart |
-| `yaxis=dict(type='log')` | `practice/A_Main_Analysis.ipynb` | Log scale on the installs box plot y-axis |
+| `'../../data/apps.csv'` | `notebooks/analysis/android_analysis.ipynb` | Relative path from notebooks/analysis/ to dataset |
+| `pd.options.display.float_format = '{:,.2f}'.format` | analysis notebook | Display floats with 2 decimal places |
+| `df_apps_clean = df_apps_clean[df_apps_clean["Price"] < 250]` | analysis notebook | Removes extreme junk-priced apps from base dataset |
+| `Price <= 29.99` | Improvement 2 | Paid viability filter — principled ceiling to remove data-entry junk |
+| `min 10 paid apps` | Improvement 2 | Credibility floor — excludes categories with insufficient paid data |
+| `KMeans(n_clusters=4, random_state=42)` | Improvement 3 | Cluster count and seed for reproducibility |
+| `StandardScaler` | Improvement 3 | Required — prevents install count dominating all other features |
+| `scale=2` in `write_image()` | all charts | Produces 150 dpi output via kaleido |
 
 ---
 
-## 8. Course context
+## 8. Background
 
-100 Days of Code — Data Science Bootcamp, Day 76: Beautiful Plotly Charts and Analysing the Android App Store.
+This project analyses Google Play Store data originally scraped by Lavanya Gupta in 2018 (available on Kaggle). The dataset was used as the basis for a Plotly data visualisation module covering pie charts, bar charts, scatter plots, and box plots, extended here with market segmentation analysis using scikit-learn.
 
-See [docs/COURSE_NOTES.md](docs/COURSE_NOTES.md) for the full exercise brief and concept notes.
+See [docs/COURSE_NOTES.md](docs/COURSE_NOTES.md) for full concept notes.
 
 ---
 
 ## 9. Dependencies
 
-| Module | Used in | Purpose |
-|---|---|---|
-| pandas | practice/, theory/ | Data loading, cleaning, groupby, merge, type conversion |
-| numpy | practice/ | Numeric operations (implicit via pandas) |
-| plotly | practice/, theory/ (03–07) | Interactive pie, bar, scatter, and box charts |
-| notebook | — | Jupyter notebook runtime |
+| Module | Purpose |
+|---|---|
+| pandas | Data loading, cleaning, groupby, merge, type conversion |
+| numpy | Log transforms, numeric operations |
+| plotly | Interactive pie, bar, scatter, and box charts |
+| scikit-learn | KMeans clustering, StandardScaler, PCA |
+| kaleido | Static PNG export for Plotly charts |
+| notebook | Jupyter notebook runtime |
+
+Install all dependencies:
+
+```bash
+pip install -r requirements.txt
+```
