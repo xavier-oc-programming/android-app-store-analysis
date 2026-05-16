@@ -1,5 +1,13 @@
 # Android App Store Analysis
 
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![pandas](https://img.shields.io/badge/pandas-2.0%2B-150458?logo=pandas&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-5.18%2B-3F4F75?logo=plotly&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3%2B-F7931E?logo=scikit-learn&logoColor=white)
+![CI](https://img.shields.io/github/actions/workflow/status/xavier-oc-programming/android-app-store-analysis/publish_notebook.yml?branch=main&label=notebook%20publish&logo=github-actions&logoColor=white)
+![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-22863a?logo=github&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
 If you were launching an app today, where would you put it? This analysis of 8,199 Google Play Store apps maps category-level competition, install opportunity, and revenue potential to identify where the market is undersupplied — and where it is saturated.
 
 The analytical approach runs in three parts: an Opportunity Score that measures demand relative to supply per category, a paid viability analysis that isolates categories where charging for an app actually produces meaningful revenue, and a K-Means segmentation that clusters all 8,199 individual apps into four distinct market positions using normalised features across installs, ratings, reviews, price, and app size. PCA reduces the five-dimensional feature space to two interpretable components for visualisation.
