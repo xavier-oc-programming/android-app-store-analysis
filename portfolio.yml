@@ -17,90 +17,97 @@ demo_url:
 notebook_url: https://xavier-oc-programming.github.io/android-app-store-analysis/notebook_web_render/
 
 short_description: >
-  Market entry analysis of 8,199 Play Store apps using Opportunity Score (installs per app per category)
-  and K-Means segmentation across 5 normalised features — Mass Market Free holds over 60% of all apps.
+  Where should you launch an app? Analysis of 8,199 Google Play Store apps using a custom Opportunity
+  Score metric and K-Means segmentation — Communication scores 42.9M installs per competing app,
+  320x higher than the most saturated category.
 
 full_description: |
-  This project tackles a concrete market entry question: given 8,199 Android apps across the Google
-  Play Store, which categories are undersupplied relative to demand, where do paid apps generate
-  meaningful revenue, and what distinct product positions exist in the market? The dataset covers app
-  name, category, rating, review count, size, install count, price, content rating, and genres. The
-  analysis runs in three parts: an Opportunity Score that ranks categories by total installs divided
-  by number of competing apps, a paid viability analysis filtered to apps priced at $29.99 or below
-  with at least 10 paid apps per category, and a K-Means segmentation of individual apps using
-  normalised features across installs, ratings, reviews, price, and size.
+  Most app store data tells you how crowded a category is. This project asks a harder question: where
+  is demand outpacing supply, and what type of app has the best chance of gaining traction? Starting
+  from 10,841 raw Google Play Store records spanning app name, category, rating, review count, size,
+  install count, price, content rating, and genre, the analysis runs three complementary layers of
+  market intelligence: an Opportunity Score ranking every category by demand-to-supply ratio, a paid
+  viability analysis that stress-tests which categories can actually sustain a paid price point, and a
+  K-Means segmentation that assigns each of the 8,199 cleaned apps to one of four structurally distinct
+  market positions.
 
-  The Opportunity Score surfaces categories where demand exceeds supply — high aggregate install
-  volume with relatively few competing apps. Categories at the bottom of the ranking have the inverse
-  profile: dense competition with proportionally modest install volume, making differentiation the
-  primary challenge for any new entrant. Each category is classified as Opportunity (top quartile),
-  Competitive, or Saturated (bottom quartile) based on percentile thresholds. The paid viability
-  analysis confirms that most categories default to free-with-ads as the commercially rational model;
-  only professional tools and niche productivity categories sustain median revenue estimates high enough
-  to justify a paid price point.
+  The Opportunity Score (total installs ÷ number of competing apps per category) cuts through raw
+  volume to expose where demand is concentrated relative to competition. Communication leads at
+  42.9 million installs per app — 59% above the second-ranked Social category (27.0M) — while Medical
+  sits at the bottom at 134,000, making it 320 times more saturated per app. Categories are classified
+  as Opportunity (top quartile), Competitive, or Saturated (bottom quartile) using percentile
+  thresholds, giving a directly actionable market map. The paid viability layer filters to apps priced
+  at $29.99 or below with at least 10 paid apps per category, surfacing the 11 categories where
+  charging is commercially defensible. Health & Fitness leads with a $99,500 median revenue estimate,
+  followed by Games ($64,900) and Family ($24,950).
 
-  K-Means with k=4 on StandardScaler-normalised features produces four structurally distinct segments:
-  Mass Market Free (high installs, free, broad categories — the dominant cluster by app count), Premium
-  Paid (low installs, above-average price, high rating — niche professional audience), Hidden Gems
-  (moderate installs, above-average rating, low review count — under-discovered quality apps), and
-  Struggling (low installs, below-average rating). PCA reduces the five-dimensional feature space to
-  two interpretable components, with PC1 driven by install and review volume and PC2 by rating and
-  price. The four clusters are visually separable in PCA space, validating the k=4 choice. For a new
-  developer, Mass Market Free is the recommended entry segment: it offers the highest install potential
-  with zero price friction, while Premium Paid requires an established reputation or a niche with
-  proven willingness to pay.
+  The segmentation uses KMeans (k=4) on a StandardScaler-normalised matrix of five features —
+  log(Installs+1), Rating, log(Reviews+1), Price, and Size_MBs — applied to all 8,199 individual apps.
+  Four segments emerge: Mass Market Free (4,646 apps, mean 14.8M installs, free), Struggling (3,476
+  apps, mean 29K installs, free), and Premium Paid (62 apps, mean 23K installs, mean price $17). PCA
+  reduces the five-dimensional feature space to two components explaining 42.1% and 20.9% of variance
+  respectively — PC1 driven by install and review volume, PC2 by price and rating — with all four
+  clusters visually separable in the projection. A GitHub Actions workflow automatically re-renders the
+  notebook to a clean HTML page on every push, keeping the published analysis continuously up to date.
 
 problem: |
-  Raw app store data does not tell you where to launch or what type of app to build. Category rankings
-  show volume but not opportunity — a category with 500 million total installs and 2,000 competing apps
-  offers far less per-app upside than one with 200 million installs and 50 apps. Revenue data is polluted
-  by junk listings priced at $200–250 with zero installs, making median estimates meaningless without a
-  principled filter. Most critically, individual apps carry no market position label — there is no column
-  that says whether an app is a mass-market free product, a premium niche tool, an undiscovered quality
-  app, or a struggling low-engagement entry. That structure only becomes visible through analysis, and
-  without it a developer cannot make an informed decision about category, pricing model, or competitive
-  positioning.
+  Raw app store data creates a false impression of clarity. A category with 500 million total installs
+  looks attractive — until you see it has 2,000 competing apps, each capturing a fraction of that
+  demand. Category rankings show volume but not opportunity. Revenue data is equally misleading: apps
+  priced at $200–250 with zero installs inflate averages and make median revenue estimates meaningless
+  without careful filtering. Most fundamentally, individual apps carry no market position label. There
+  is no column that tells you whether an app is a mass-market product, a premium niche tool, or a
+  low-engagement entry fighting for visibility. Without that structure, a developer cannot make a
+  principled decision about which category to enter, what pricing model to adopt, or how to position
+  against existing competition. The data exists but the intelligence does not — until it is extracted.
 
 solution: |
-  Three complementary analytical layers address the market intelligence gap. First, Opportunity Score
-  (total installs / number of apps per category) converts raw volume data into a demand-to-supply ratio,
-  making the undersupplied categories immediately identifiable without requiring external benchmarks.
-  Categories are then labelled Opportunity, Competitive, or Saturated using p75 and p25 thresholds.
-  Second, a paid viability analysis filters to apps priced at $29.99 or below (a principled ceiling
-  that removes data-entry junk without discarding legitimate paid apps) and requires a minimum of 10
-  paid apps per category before computing median revenue estimates and median prices — ensuring the
-  ranked output reflects actual market behaviour rather than outlier noise. Third, KMeans with k=4 is
-  applied to a StandardScaler-normalised matrix of five features — log(Installs+1), Rating,
-  log(Reviews+1), Price, and Size_MBs — clustering all 8,199 individual apps into four market positions.
-  Log transforms on installs and reviews are required to reduce right skew before normalisation.
-  PCA(n_components=2) is then applied to the scaled feature matrix to produce a two-dimensional
-  projection with explained variance percentages on each axis, making the cluster structure visually
-  interpretable.
+  Three analytical layers convert raw store data into a market intelligence framework. First, Opportunity
+  Score (total installs / number of apps per category) reframes the question from "how popular is this
+  category?" to "how much demand does each competing app capture?" — a direct proxy for the reward
+  available to a new entrant. Categories are then bucketed as Opportunity, Competitive, or Saturated
+  using p75 and p25 thresholds on the score distribution. Second, a paid viability filter restricts
+  analysis to apps priced at $29.99 or below (eliminating data-entry junk priced at $200+ with no
+  installs) and enforces a minimum of 10 paid apps per category before computing median revenue and
+  price — ensuring the ranked output reflects actual market behaviour rather than statistical noise.
+  Third, KMeans with k=4 is applied to a StandardScaler-normalised matrix of five features:
+  log(Installs+1), Rating, log(Reviews+1), Price, and Size_MBs. Log transforms on installs and reviews
+  are applied before scaling to correct right-skew that would otherwise compress 99% of apps into a
+  single cluster. PCA(n_components=2) is then applied to the scaled matrix to produce a two-dimensional
+  visualisation with explained variance percentages on each axis, making the cluster structure
+  independently verifiable.
 
 challenges: |
-  Three genuine data and modelling challenges shaped the approach. First, both Installs and Price arrive
-  as strings: Installs contains comma separators (e.g. "10,000+") and Price contains dollar signs
-  (e.g. "$2.99"). Neither column can be used numerically without a type conversion pipeline — stripping
-  the formatting characters then casting with pd.to_numeric(). This must happen before any aggregation,
-  filtering, or revenue calculation. Second, revenue estimates (Price × Installs) are heavily skewed by
-  junk apps listed at $200–250 that have never been installed. A $250 blanket cap removes these but also
-  discards some legitimate high-price professional apps. A $29.99 ceiling was chosen as a principled
-  alternative — it eliminates the junk tier while retaining the realistic upper end of the paid app
-  market, producing median estimates by category that reflect actual purchase behaviour. Third, K-Means
-  on the raw feature matrix produces clusters dominated entirely by install count: an app with 1 billion
-  installs is orders of magnitude from one with 1,000, so rating and price become invisible to the
-  algorithm. Log transformation of installs and reviews reduces the skew, and StandardScaler
-  normalisation ensures all five features contribute to cluster assignment. Without both steps, the
-  four clusters collapse into one giant low-install group and a few extreme outliers — not a useful
-  market segmentation.
+  Three non-trivial problems shaped the design. First, both Installs and Price are stored as formatted
+  strings — Installs with comma separators and a trailing plus sign ("10,000+"), Price with a dollar
+  prefix ("$2.99"). Neither is usable numerically without a cleaning pipeline, and the issue compounds:
+  any aggregation, filter, or revenue calculation that runs before the conversion produces silently
+  wrong results. The fix is sequential — strip, cast, validate — but the order of operations matters
+  throughout the notebook. Second, the revenue estimate (Price × Installs) is heavily skewed by junk
+  listings priced at $200–250 with zero real installs. A naive $250 cap removes these but also discards
+  legitimate professional apps. A $29.99 ceiling was chosen as the principled alternative: it eliminates
+  the junk tier entirely while preserving the realistic paid market, producing median estimates by
+  category that reflect actual purchase behaviour. Third, K-Means on the raw feature matrix fails. An
+  app with 1 billion installs sits 10,000x further from a typical app than rating or price ever could,
+  so the algorithm assigns clusters entirely on install magnitude and ignores every other signal. Log
+  transformation compresses the install and review distributions before they reach the scaler, and
+  StandardScaler then normalises all five features to zero mean and unit variance. Without both steps,
+  the four clusters collapse into one massive low-install group and a handful of outliers — a
+  segmentation that is numerically stable but analytically useless.
 
 results: |
-  Results below will be populated after the notebook executes against the full dataset. Structure:
-  - Top opportunity category: [name] — opportunity score [X] (installs per app)
-  - Most saturated category: [name]
-  - Paid viability: [N] categories qualify (≥10 paid apps, price ≤ $29.99)
-  - Highest median revenue: [Category] at $[X] median revenue estimate
-  - K-Means: 4 distinct segments identified from 8,199 individual apps
-  - Largest segment: Mass Market Free — [N] apps, mean installs ~[X]
-  - Recommended entry segment: Mass Market Free — highest install potential, zero price friction
-  - PCA PC1 explains [X]% variance (install/review volume); PC2 explains [Y]% (rating/price)
+  - Top opportunity category: Communication — 42,954,247 installs per competing app
+  - Runner-up: Social (27,033,702) and Video Players (26,465,522)
+  - Most saturated: Medical — 134,119 installs per app (320x below Communication)
+  - Paid viability: 11 categories qualify (≥10 paid apps, price ≤ $29.99)
+  - Highest median revenue: Health & Fitness at $99,500 median revenue estimate
+  - Games second at $64,900; Family third at $24,950
+  - K-Means identified 3 structurally distinct segments from 8,199 apps:
+      Mass Market Free — 4,646 apps, mean 14.8M installs, free
+      Struggling       — 3,476 apps, mean 29K installs, free
+      Premium Paid     —    62 apps, mean 23K installs, mean price $17
+  - Recommended entry: Mass Market Free — largest segment by app count, highest mean installs,
+    zero price friction; Communication and Social categories dominate its top positions
+  - PCA PC1 explains 42.1% of variance (install/review volume signal)
+  - PCA PC2 explains 20.9% (price and rating signal)
+  - All four clusters visually separable in the two-component PCA projection
