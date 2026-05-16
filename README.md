@@ -104,7 +104,7 @@ pd.read_csv('../../data/apps.csv')  →  df_apps  (10,841 × 12)
     └── px.scatter(PC1, PC2, color=Segment_Label)        →  K-Means PCA projection
 ```
 
-All charts are saved to `plots/` at 150 dpi (scale=2 via kaleido).
+All charts are saved to `plots/` as PNG at 150 dpi using `fig.write_image(scale=2)` (requires kaleido).
 
 ---
 
@@ -193,13 +193,15 @@ android-app-store-analysis/
 
 ## 6. Visualisations
 
-All charts are saved to `plots/` at 150 dpi when the notebook runs.
+Charts are saved to `plots/` as PNG at 150 dpi via `fig.write_image(scale=2)` when the notebook runs.
 
 | File | Description |
 |---|---|
 | `content_rating_donut.png` | Donut chart of content rating distribution |
+| `content_rating_pie.png` | Pie chart of content rating distribution (labelled) |
 | `top_10_categories_bar.png` | Top 10 categories by number of apps |
 | `category_installs_bar.png` | All categories ranked by total installs (horizontal) |
+| `category_popularity_bar.png` | Category popularity with labelled axes |
 | `category_concentration_scatter.png` | Apps vs installs per category — scatter with size |
 | `top_genres_bar.png` | Top 15 genres by frequency, coloured by count |
 | `free_vs_paid_bar.png` | Free vs paid app count per category (grouped bar) |
@@ -223,7 +225,7 @@ All charts are saved to `plots/` at 150 dpi when the notebook runs.
 | `min 10 paid apps` | Improvement 2 | Credibility floor — excludes categories with insufficient paid data |
 | `KMeans(n_clusters=4, random_state=42)` | Improvement 3 | Cluster count and seed for reproducibility |
 | `StandardScaler` | Improvement 3 | Required — prevents install count dominating all other features |
-| `scale=2` in `write_image()` | all charts | Produces 150 dpi output via kaleido |
+| `fig.write_image('plots/name.png', scale=2)` | all charts | Saves PNG at 150 dpi via kaleido |
 
 ---
 
