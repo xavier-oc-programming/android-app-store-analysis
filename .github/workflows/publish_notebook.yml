@@ -28,13 +28,9 @@ jobs:
         run: |
           jupyter nbconvert --to html \
             --no-input \
-            --output index.html \
+            --output-dir notebook_web_render \
+            --output index \
             notebooks/analysis/android_analysis.ipynb
-
-      - name: Move to render directory
-        run: |
-          mkdir -p notebook_web_render
-          mv index.html notebook_web_render/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
