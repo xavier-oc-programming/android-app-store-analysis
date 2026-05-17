@@ -8,6 +8,9 @@ on:
     paths:
       - 'notebooks/analysis/android_analysis.ipynb'
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
