@@ -26,11 +26,15 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip install -r requirements.txt
           pip install jupyter nbconvert
 
-      - name: Convert notebook to HTML
+      - name: Execute and convert notebook to HTML
         run: |
           jupyter nbconvert --to html \
+            --execute \
+            --ExecutePreprocessor.timeout=300 \
+            --allow-errors \
             --output-dir notebook_web_render \
             --output index \
             notebooks/analysis/android_analysis.ipynb
